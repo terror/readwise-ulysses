@@ -1,0 +1,20 @@
+{
+  "name": "readwise-ulysses",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "https://github.com/terror/readwise-ulysses.git",
+  "author": "Liam <liam@scalzulli.com>",
+  "license": "CC0",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "dotenv": "^10.0.0",
+    "node-fetch": "^3.1.0",
+    "xcall": "^1.0.4"
+  },
+  "devDependencies": {
+    "prettier": "^2.5.0"
+  }
+}
