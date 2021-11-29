@@ -4,7 +4,7 @@
   "main": "index.js",
   "repository": "https://github.com/terror/readwise-ulysses.git",
   "author": "Liam <liam@scalzulli.com>",
-  "license": "CC0",
+  "license": "CC0-1.0",
   "type": "module",
   "scripts": {
     "start": "node index.js"
@@ -12,7 +12,7 @@
   "dependencies": {
     "dotenv": "^10.0.0",
     "node-fetch": "^3.1.0",
-    "xcall": "^1.0.4"
+    "promised-exec": "^1.0.1"
   },
   "devDependencies": {
     "prettier": "^2.5.0"

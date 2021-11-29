@@ -52,20 +52,7 @@ q@^1.1.2:
   resolved "https://registry.yarnpkg.com/q/-/q-1.5.1.tgz#7e32f75b41381291d04611f1bf14109ac00651d7"
   integrity sha1-fjL3W0E4EpHQRhHxvxQQmsAGUdc=
 
-querystring@^0.2.0:
-  version "0.2.1"
-  resolved "https://registry.yarnpkg.com/querystring/-/querystring-0.2.1.tgz#40d77615bb09d16902a85c3e38aa8b5ed761c2dd"
-  integrity sha512-wkvS7mL/JMugcup3/rMitHmd9ecIGd2lhFhK9N3UUQ450h66d1r3Y9nvXzQAW1Lq+wyx61k/1pfKS5KuKiyEbg==
-
 web-streams-polyfill@^3.0.3:
   version "3.2.0"
   resolved "https://registry.yarnpkg.com/web-streams-polyfill/-/web-streams-polyfill-3.2.0.tgz#a6b74026b38e4885869fb5c589e90b95ccfc7965"
   integrity sha512-EqPmREeOzttaLRm5HS7io98goBgZ7IVz79aDvqjD0kYXLtFZTc0T/U6wHTPKyIjb+MdN7DFIIX6hgdBEpWmfPA==
-
-xcall@^1.0.4:
-  version "1.0.4"
-  resolved "https://registry.yarnpkg.com/xcall/-/xcall-1.0.4.tgz#26f7631f46197584117286951cb595b9d84db166"
-  integrity sha512-EzC+czGXM5nvGltoNXn7mh1+zVMK3UIkUvaljVz1M1REdEwd5nwUTRWmBJGdSoX8vs+z6LiczJE8K9GU6KxsDw==
-  dependencies:
-    promised-exec "^1.0.1"
-    querystring "^0.2.0"
