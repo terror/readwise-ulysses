@@ -24,7 +24,7 @@ class UlyssesClient {
    * @param {Object} options - Action parameters
    * @returns {Object} A new authorized `UlyssesClient` instance
    */
-  static async auth(options) {
+  static async auth(options = { appname: UlyssesClient.APP_NAME }) {
     return new UlyssesClient(
       JSON.parse(
         await new xcall(UlyssesClient.SCHEME).call('authorize', options)
@@ -88,23 +88,42 @@ class ReadwiseClient {
     let data = await this.request(
       `${ReadwiseClient.BASE_URL}/books?category=books&page_size=1000`
     );
+
+    // No books
+    if (!data.results) {
+      return [];
+    }
+
     // If we don't need to paginate, return data on the first page
-    if (data.next === null) return [...data.results];
+    if (data.next === null) {
+      return data.results;
+    }
+
     // Return collected results from each page
     return await this.paginate(data);
   }
 
   /**
-   * Get all highlights from Readwise.
+   * Get all highlights from a single book.
+   * @param {Number} id - Book ID
    * @returns {Promise}
    */
-  async getHighlights() {
+  async getHighlightsByBook(id) {
     // Initial request
     let data = await this.request(
-      `${ReadwiseClient.BASE_URL}/highlights?page_size=1000`
+      `${ReadwiseClient.BASE_URL}/highlights?book_id=${id}&page_size=1000`
     );
+
+    // No highlights
+    if (!data.results) {
+      return [];
+    }
+
     // If we don't need to paginate, return data on the first page
-    if (data.next === null) return [...data.results];
+    if (data.next === null) {
+      return data.results;
+    }
+
     // Return collected results from each page
     return await this.paginate(data);
   }
@@ -116,15 +135,21 @@ class ReadwiseClient {
    */
   async paginate(data) {
     const ret = [];
+
     // Collect results on each page
     while (true) {
       // Collect results on this page
       ret.push(...data.results);
+
       // If there's no next page, break
-      if (data.next === null) break;
+      if (data.next === null) {
+        break;
+      }
+
       // Fetch data on the next page
       data = await this.request(data.next);
     }
+
     return ret;
   }
 
@@ -175,33 +200,17 @@ class Sheet {
     ret += '### Metadata\n\n';
     ret += `- Author: ${this.book.author}\n`;
     ret += `- Full Title: ${this.book.title}\n`;
-    ret += `- Category: ${this.book.category}\n\n`;
+    ret += `- Category: #${this.book.category}\n\n`;
 
     // Highlights
     ret += '### Highlights\n\n';
     this.highlights.forEach((highlight) => {
-      ret += `- ${highlight.text}\n\n`;
+      ret += `- ${highlight.text} ([Location ${highlight.location}](https://readwise.io/to_kindle?action=open&asin=${this.book.asin}&location=${highlight.location}))\n\n`;
     });
 
     return ret;
   }
 }
-
-/*
- * A groupBy utility function
- * https://stackoverflow.com/questions/14446511/most-efficient-method-to-groupby-on-an-array-of-objects
- * @param {list} items
- * @param {string} key
- */
-const groupBy = (items, key) => {
-  return items.reduce(
-    (result, item) => ({
-      ...result,
-      [item[key]]: [...(result[item[key]] || []), item],
-    }),
-    {}
-  );
-};
 
 /*
  * Lightweight xcall client wrapper
@@ -222,6 +231,15 @@ const xcall = function (scheme) {
 };
 
 /*
+ * Sleep utility
+ * @param {Number} msec
+ * @returns {Promise}
+ */
+const sleep = async (msec) => {
+  return new Promise((resolve) => setTimeout(resolve, msec));
+};
+
+/*
  * Run the application
  * @param {string} token - Readwise access token
  */
@@ -230,15 +248,10 @@ const run = async (token) => {
   const readwiseClient = await ReadwiseClient.auth(token);
 
   // Authenticate a `UlyssesClient` instance
-  const ulyssesClient = await UlyssesClient.auth({
-    appname: UlyssesClient.APP_NAME,
-  });
+  const ulyssesClient = await UlyssesClient.auth();
 
   // Fetch all books from Readwise
   const books = await readwiseClient.getBooks();
-
-  // Fetch all highlights from Readwise, group them by book ID
-  const highlights = groupBy(await readwiseClient.getHighlights(), 'book_id');
 
   // Create the top-level group if it does not exist
   let root;
@@ -260,15 +273,20 @@ const run = async (token) => {
   }
 
   // Create all child groups
-  for (const [key, value] of Object.entries(highlights).slice(0, 3)) {
-    // Find the current book in `books` by id
-    const book = books.find((book) => book.id == key);
+  for (let i = 0; i < books.length; ++i) {
+    // Current book
+    const book = books[i];
+
+    // Get highlights correspondant to the current book
+    const highlights = await readwiseClient.getHighlightsByBook(book.id);
 
     let group;
     // Create child group if it does not exist
     try {
       group = JSON.parse(
-        await ulyssesClient.exec('get-item', { id: `/Literature/${book.title}` })
+        await ulyssesClient.exec('get-item', {
+          id: `/Literature/${book.title}`,
+        })
       );
     } catch {
       group = JSON.parse(
@@ -286,14 +304,19 @@ const run = async (token) => {
       for (let i = 0; i < data.containers.length; ++i) {
         for (let j = 0; j < data.containers[i].sheets.length; ++j) {
           const sheet = data.containers[i].sheets[j];
+
+          // A highlight sheet has the same name as the
+          // corresponding book
           if (sheet.title === book.title) {
+            // Trash it
             await ulyssesClient.exec('trash', {
               id: sheet.identifier,
             });
+            // Create it
             await ulyssesClient.exec('new-sheet', {
               name: 'Highlights',
               group: group.targetId,
-              text: new Sheet(book, value).build(),
+              text: new Sheet(book, highlights).build(),
             });
           }
         }
@@ -307,11 +330,14 @@ const run = async (token) => {
       await ulyssesClient.exec('new-sheet', {
         name: 'Highlights',
         group: group.targetId,
-        text: new Sheet(book, value).build(),
+        text: new Sheet(book, highlights).build(),
       });
     }
 
     console.log(book);
+
+    // Hack: Readwise rate limit
+    await sleep(5000);
   }
 };
 
