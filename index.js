@@ -86,7 +86,7 @@ class ReadwiseClient {
   async getBooks() {
     // Initial request
     let data = await this.request(
-      `${ReadwiseClient.BASE_URL}/books?page_size=1000`
+      `${ReadwiseClient.BASE_URL}/books?category=books&page_size=1000`
     );
     // If we don't need to paginate, return data on the first page
     if (data.next === null) return [...data.results];
@@ -147,6 +147,47 @@ class ReadwiseClient {
 }
 
 /*
+ * A `Sheet` is simply a ulysses page string as markdown,
+ * accessed through the `build` method.
+ */
+class Sheet {
+  /*
+   * `Sheet` constructor
+   * @param {Object} book
+   * @param {List} highlights
+   */
+  constructor(book, highlights) {
+    this.book = book;
+    this.highlights = highlights;
+  }
+
+  /*
+   * Build the markdown string
+   * @returns {string}
+   */
+  build() {
+    let ret = `## ${this.book.title}\n\n`;
+
+    // Image
+    ret += `![${this.book.title}](${this.book.cover_image_url})\n\n`;
+
+    // Metadata
+    ret += '### Metadata\n\n';
+    ret += `- Author: ${this.book.author}\n`;
+    ret += `- Full Title: ${this.book.title}\n`;
+    ret += `- Category: ${this.book.category}\n\n`;
+
+    // Highlights
+    ret += '### Highlights\n\n';
+    this.highlights.forEach((highlight) => {
+      ret += `- ${highlight.text}\n\n`;
+    });
+
+    return ret;
+  }
+}
+
+/*
  * A groupBy utility function
  * https://stackoverflow.com/questions/14446511/most-efficient-method-to-groupby-on-an-array-of-objects
  * @param {list} items
@@ -199,30 +240,76 @@ const run = async (token) => {
   // Fetch all highlights from Readwise, group them by book ID
   const highlights = groupBy(await readwiseClient.getHighlights(), 'book_id');
 
-  // Create the top-level group
-  const root = JSON.parse(
-    await ulyssesClient.exec('new-group', { name: 'Literature' })
-  );
+  // Create the top-level group if it does not exist
+  let root;
+  let exists = false;
+  try {
+    root = JSON.parse(
+      await ulyssesClient.exec('get-item', {
+        id: '/Literature',
+      })
+    );
+    exists = true;
+  } catch {
+    root = JSON.parse(
+      await ulyssesClient.exec('new-group', {
+        name: 'Literature',
+        recursive: 'NO',
+      })
+    );
+  }
 
   // Create all child groups
   for (const [key, value] of Object.entries(highlights).slice(0, 3)) {
     // Find the current book in `books` by id
     const book = books.find((book) => book.id == key);
 
-    // Create the child group
-    const group = JSON.parse(
-      await ulyssesClient.exec('new-group', {
-        name: book.title,
-        parent: root.id,
-      })
-    );
+    let group;
+    // Create child group if it does not exist
+    try {
+      group = JSON.parse(
+        await ulyssesClient.exec('get-item', { id: `/Literature/${book.title}` })
+      );
+    } catch {
+      group = JSON.parse(
+        await ulyssesClient.exec('new-group', {
+          name: book.title,
+          parent: root.id,
+        })
+      );
+    }
 
-    // Create Highlights` and `Notes` sheets
-    await ulyssesClient.exec('new-sheet', { name: 'Notes', group: group.id });
-    await ulyssesClient.exec('new-sheet', {
-      name: 'Highlights',
-      group: group.id,
-    });
+    // If the root already exists, we need to go through
+    // and re-create all `Highlight` pages
+    if (exists) {
+      const data = JSON.parse(root.item);
+      for (let i = 0; i < data.containers.length; ++i) {
+        for (let j = 0; j < data.containers[i].sheets.length; ++j) {
+          const sheet = data.containers[i].sheets[j];
+          if (sheet.title === book.title) {
+            await ulyssesClient.exec('trash', {
+              id: sheet.identifier,
+            });
+            await ulyssesClient.exec('new-sheet', {
+              name: 'Highlights',
+              group: group.targetId,
+              text: new Sheet(book, value).build(),
+            });
+          }
+        }
+      }
+    } else {
+      await ulyssesClient.exec('new-sheet', {
+        name: 'Notes',
+        group: group.targetId,
+        text: '### Notes',
+      });
+      await ulyssesClient.exec('new-sheet', {
+        name: 'Highlights',
+        group: group.targetId,
+        text: new Sheet(book, value).build(),
+      });
+    }
 
     console.log(book);
   }
