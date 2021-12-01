@@ -36,3 +36,13 @@ export const buildPage = (book, highlights) => {
 export const sleep = async (msec) => {
   return new Promise((resolve) => setTimeout(resolve, msec));
 };
+
+
+/*
+ * Capitalize a string
+ * @param {string} s - String to capitalize
+ * @returns {string} A capitalized string
+ */
+export const capitalize = (s) => {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}

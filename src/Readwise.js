@@ -39,7 +39,7 @@ export default class Readwise {
   async getBooks() {
     // Initial request
     let data = await this.request(
-      `${Readwise.BASE_URL}/books?category=books&page_size=1000`
+      `${Readwise.BASE_URL}/books?page_size=1000`
     );
 
     // No books

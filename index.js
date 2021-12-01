@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import Readwise from './src/Readwise.js';
 import Ulysses from './src/Ulysses.js';
-import { buildPage, sleep } from './src/Utilities.js';
+import { buildPage, capitalize, sleep } from './src/Utilities.js';
 
 /*
  * Run the application
@@ -19,8 +19,8 @@ const run = async (token) => {
 
   // Create the top-level group if it does not exist
   const root = await ulysses.findOrCreateGroup(
-    { id: '/Literature' },
-    { name: 'Literature' }
+    { id: '/Readwise' },
+    { name: 'Readwise' }
   );
 
   // Create all child groups
@@ -30,8 +30,8 @@ const run = async (token) => {
 
     // Create child group if it does not exist
     const group = await ulysses.findOrCreateGroup(
-      { id: `/Literature/${book.title}` },
-      { name: book.title, parent: root.id }
+      { id: `/Readwise/${capitalize(book.category)}` },
+      { name: capitalize(book.category), parent: root.id }
     );
 
     // If the root was found, we need to go through
@@ -56,11 +56,6 @@ const run = async (token) => {
         }
       }
     } else {
-      await ulysses.createSheet({
-        name: 'Notes',
-        group: group.targetId,
-        text: '### Notes',
-      });
       await ulysses.createSheet({
         name: 'Highlights',
         group: group.targetId,
